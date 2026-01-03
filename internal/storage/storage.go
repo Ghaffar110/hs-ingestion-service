@@ -3,6 +3,9 @@ package storage
 import (
 	"database/sql"
 	"time"
+    // "context"
+    "fmt"
+    "log"
 
 	"ingestion-service/internal/logger"
 	"ingestion-service/internal/models"
@@ -79,7 +82,7 @@ func Close() {
 // InitDatabase opens the database connection
 func InitDatabase(databaseURL string) error {
 	var err error
-	DB, err = sql.Open("postgres", databaseURL)
+	DB, err = connectWithRetry(databaseURL, 3)
 	if err != nil {
 		return err
 	}
@@ -92,3 +95,90 @@ func InitDatabase(databaseURL string) error {
 	logger.Info("database connection established", nil)
 	return nil
 }
+
+// func InitDatabase(databaseURL string) error {
+// 	const (
+// 		maxRetries = 5
+// 		baseDelay  = time.Second
+// 	)
+
+// 	var err error
+
+// 	for attempt := 1; attempt <= maxRetries; attempt++ {
+// 		DB, err = sql.Open("postgres", databaseURL)
+// 		if err != nil {
+// 			logger.Warn("failed to open database", map[string]interface{}{
+// 				"attempt": attempt,
+// 				"error":   err.Error(),
+// 			})
+// 			time.Sleep(time.Duration(attempt) * baseDelay)
+// 			continue
+// 		}
+
+// 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+// 		err = DB.PingContext(ctx)
+// 		cancel()
+
+// 		if err == nil {
+// 			logger.Info("database connection established", nil)
+// 			return nil
+// 		}
+
+// 		logger.Warn("database ping failed", map[string]interface{}{
+// 			"attempt": attempt,
+// 			"error":   err.Error(),
+// 		})
+
+// 		time.Sleep(time.Duration(attempt) * baseDelay)
+// 	}
+
+// 	// Important: do NOT fatal here
+// 	logger.Error("database unavailable after retries, continuing without DB", nil)
+// 	DB = nil
+// 	return nil
+// }
+
+// storage/storage.go
+func MonitorDatabase(databaseURL string) {
+    ticker := time.NewTicker(10 * time.Second)
+    defer ticker.Stop()
+
+    for range ticker.C {
+        if DB != nil {
+            if err := DB.Ping(); err == nil {
+                continue
+            }
+        }
+
+        // Try to reconnect
+        err := InitDatabase(databaseURL)
+        if err != nil {
+            log.Printf("DB reconnection failed: %v\n", err)
+        } else {
+            log.Println("DB reconnected successfully")
+        }
+    }
+}
+
+
+// Connect with retries
+func connectWithRetry(dsn string, maxRetries int) (*sql.DB, error) {
+    var err error
+
+    for i := 1; i <= maxRetries; i++ {
+        DB, err = sql.Open("postgres", dsn)
+        if err == nil {
+            if err = DB.Ping(); err == nil {
+                log.Println("database connected")
+                return DB, nil
+            }
+        }
+
+        log.Printf("db connection failed (attempt %d/%d): %v", i, maxRetries, err)
+        time.Sleep(time.Duration(i) * time.Second)
+    }
+
+    return nil, fmt.Errorf("database unavailable after retries")
+}
+
+
