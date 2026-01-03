@@ -6,6 +6,9 @@ import (
     // "context"
     "fmt"
     "log"
+    // "context"
+    "fmt"
+    "log"
 
 	"ingestion-service/internal/logger"
 	"ingestion-service/internal/models"
@@ -82,6 +85,7 @@ func Close() {
 // InitDatabase opens the database connection
 func InitDatabase(databaseURL string) error {
 	var err error
+	DB, err = connectWithRetry(databaseURL, 3)
 	DB, err = connectWithRetry(databaseURL, 3)
 	if err != nil {
 		return err
