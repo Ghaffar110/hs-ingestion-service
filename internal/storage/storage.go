@@ -96,48 +96,6 @@ func InitDatabase(databaseURL string) error {
 	return nil
 }
 
-// func InitDatabase(databaseURL string) error {
-// 	const (
-// 		maxRetries = 5
-// 		baseDelay  = time.Second
-// 	)
-
-// 	var err error
-
-// 	for attempt := 1; attempt <= maxRetries; attempt++ {
-// 		DB, err = sql.Open("postgres", databaseURL)
-// 		if err != nil {
-// 			logger.Warn("failed to open database", map[string]interface{}{
-// 				"attempt": attempt,
-// 				"error":   err.Error(),
-// 			})
-// 			time.Sleep(time.Duration(attempt) * baseDelay)
-// 			continue
-// 		}
-
-// 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-// 		err = DB.PingContext(ctx)
-// 		cancel()
-
-// 		if err == nil {
-// 			logger.Info("database connection established", nil)
-// 			return nil
-// 		}
-
-// 		logger.Warn("database ping failed", map[string]interface{}{
-// 			"attempt": attempt,
-// 			"error":   err.Error(),
-// 		})
-
-// 		time.Sleep(time.Duration(attempt) * baseDelay)
-// 	}
-
-// 	// Important: do NOT fatal here
-// 	logger.Error("database unavailable after retries, continuing without DB", nil)
-// 	DB = nil
-// 	return nil
-// }
-
 // storage/storage.go
 func MonitorDatabase(databaseURL string) {
     ticker := time.NewTicker(10 * time.Second)
