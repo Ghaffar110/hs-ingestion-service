@@ -70,6 +70,7 @@ func handleGetDeliveryEvents(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	logger.Info("GET /delivery-events requested string", filtersStr)
 	events, err := storage.QueryEvents(limit, filtersStr)
 	if err != nil {
 		logger.Error("failed to query events", map[string]interface{}{"error": err.Error()})

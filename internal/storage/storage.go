@@ -107,13 +107,7 @@ func InitDatabase(databaseURL string) error {
 			continue
 		}
 
-		// Configure connection pool
-		DB.SetMaxOpenConns(20)
-		DB.SetMaxIdleConns(10)
-		DB.SetConnMaxIdleTime(5 * time.Minute)
-		DB.SetConnMaxLifetime(30 * time.Minute)
-
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second) // short ping timeout
 		err = DB.PingContext(ctx)
 		cancel()
 
