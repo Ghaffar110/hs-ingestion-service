@@ -92,7 +92,7 @@ func Close() {
 // InitDatabase initializes the database connection with retries
 func InitDatabase(databaseURL string) error {
 	if DB != nil {
-		return nil // already initialized
+		return nil
 	}
 
 	const maxRetries = 3
@@ -107,7 +107,13 @@ func InitDatabase(databaseURL string) error {
 			continue
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second) // short ping timeout
+		// Configure connection pool
+		DB.SetMaxOpenConns(20)
+		DB.SetMaxIdleConns(10)
+		DB.SetConnMaxIdleTime(5 * time.Minute)
+		DB.SetConnMaxLifetime(30 * time.Minute)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		err = DB.PingContext(ctx)
 		cancel()
 
