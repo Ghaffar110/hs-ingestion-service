@@ -31,6 +31,7 @@ func StoreEvent(event models.DeliveryEvent, platformToken, validationStatus stri
 		platformToken, validationStatus)
 
 	if err != nil {
+		logger.Error("database ping failed", err)
 		return err
 	}
 
@@ -40,36 +41,22 @@ func StoreEvent(event models.DeliveryEvent, platformToken, validationStatus stri
 // QueryEvents retrieves events from the database
 func QueryEvents(limit int, filtersStr string) ([]models.StoredEvent, error) {
 	if DB == nil {
-		return nil, fmt.Errorf("database unavailable")
+		return nil, fmt.Errorf("DB unavailable")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	query := `
+	rows, err := DB.QueryContext(ctx, `
 		SELECT id, order_id, event_type, event_timestamp, received_at,
 		       customer_id, restaurant_id, driver_id, location_lat, location_lng,
 		       platform_token, validation_status, validation_error
-		FROM events ` + filtersStr + `
+		FROM events `+filtersStr+`
 		ORDER BY received_at DESC
 		LIMIT $1
-	`
-
-	var rows *sql.Rows
-	var err error
-	for attempt := 1; attempt <= 3; attempt++ {
-		rows, err = DB.QueryContext(ctx, query, limit)
-		if err == nil {
-			break
-		}
-		logger.Warn("QueryEvents attempt failed", map[string]interface{}{
-			"attempt": attempt,
-			"error":   err.Error(),
-		})
-		time.Sleep(time.Duration(attempt) * time.Second)
-	}
+	`, limit)
 	if err != nil {
-		return nil, fmt.Errorf("query failed after retries: %w", err)
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -80,7 +67,7 @@ func QueryEvents(limit int, filtersStr string) ([]models.StoredEvent, error) {
 		if err := rows.Scan(&e.ID, &e.OrderID, &e.EventType, &e.EventTimestamp, &e.ReceivedAt,
 			&e.CustomerID, &e.RestaurantID, &e.DriverID, &e.LocationLat, &e.LocationLng,
 			&e.PlatformToken, &e.ValidationStatus, &validationError); err != nil {
-			logger.Error("failed to scan row", map[string]interface{}{"error": err.Error()})
+			log.Printf("scan row failed: %v", err)
 			continue
 		}
 		if validationError.Valid {
@@ -91,7 +78,6 @@ func QueryEvents(limit int, filtersStr string) ([]models.StoredEvent, error) {
 
 	return events, nil
 }
-
 
 // Close closes the database connection
 func Close() {
@@ -107,11 +93,13 @@ func InitDatabase(databaseURL string) error {
 	DB, err = connectWithRetry(databaseURL, 3)
 	DB, err = connectWithRetry(databaseURL, 3)
 	if err != nil {
+		logger.Error("database initialization failed", err)
 		return err
 	}
 
 	// Test connection
 	if err = DB.Ping(); err != nil {
+		logger.Error("database ping failed", err)
 		return err
 	}
 
