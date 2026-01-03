@@ -3,10 +3,7 @@ package storage
 import (
 	"database/sql"
 	"time"
-    // "context"
-    "fmt"
-    "log"
-    // "context"
+    "context"
     "fmt"
     "log"
 
@@ -42,17 +39,37 @@ func StoreEvent(event models.DeliveryEvent, platformToken, validationStatus stri
 
 // QueryEvents retrieves events from the database
 func QueryEvents(limit int, filtersStr string) ([]models.StoredEvent, error) {
-	rows, err := DB.Query(`
+	if DB == nil {
+		return nil, fmt.Errorf("database unavailable")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	query := `
 		SELECT id, order_id, event_type, event_timestamp, received_at,
 		       customer_id, restaurant_id, driver_id, location_lat, location_lng,
 		       platform_token, validation_status, validation_error
-		FROM events
-		`+filtersStr+`
+		FROM events ` + filtersStr + `
 		ORDER BY received_at DESC
 		LIMIT $1
-	`, limit)
+	`
+
+	var rows *sql.Rows
+	var err error
+	for attempt := 1; attempt <= 3; attempt++ {
+		rows, err = DB.QueryContext(ctx, query, limit)
+		if err == nil {
+			break
+		}
+		logger.Warn("QueryEvents attempt failed", map[string]interface{}{
+			"attempt": attempt,
+			"error":   err.Error(),
+		})
+		time.Sleep(time.Duration(attempt) * time.Second)
+	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query failed after retries: %w", err)
 	}
 	defer rows.Close()
 
@@ -75,9 +92,11 @@ func QueryEvents(limit int, filtersStr string) ([]models.StoredEvent, error) {
 	return events, nil
 }
 
+
 // Close closes the database connection
 func Close() {
 	if DB != nil {
+		logger.Info("Closing Database Connection", nil)
 		DB.Close()
 	}
 }
