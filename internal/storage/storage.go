@@ -53,7 +53,7 @@ func QueryEvents(limit int, filtersStr string) ([]models.StoredEvent, error) {
 		SELECT id, order_id, event_type, event_timestamp, received_at,
 		       customer_id, restaurant_id, driver_id, location_lat, location_lng,
 		       platform_token, validation_status, validation_error
-		FROM events `+filtersStr+`
+		FROM events Where event_type like '`+filtersStr+`'
 		ORDER BY received_at DESC
 		LIMIT $1
 	`, limit)
