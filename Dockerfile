@@ -1,4 +1,4 @@
-FROM golang:1.21 AS builder
+FROM europe-west1-docker.pkg.dev/hungerstation-hackathon-6957/build-day-25-repo/golang:1.21 AS builder
 
 WORKDIR /app
 

@@ -46,6 +46,9 @@ func main() {
 	databaseURL := getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/ingestion?sslmode=disable")
 	port := getEnv("PORT", "8080")
 
+		// Initialize database
+	go storage.MonitorDatabase(databaseURL);
+	
 	// Initialize database
 	if err := storage.InitDatabase(databaseURL); err != nil {
 		logger.Fatal("failed to initialize database", map[string]interface{}{
